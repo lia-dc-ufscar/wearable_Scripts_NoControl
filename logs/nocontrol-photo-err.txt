@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "/home/pi/scripts/noControlPhoto.py", line 128, in <module>
+    takePhoto()
+  File "/home/pi/scripts/noControlPhoto.py", line 99, in takePhoto
+    with picamera.PiCamera() as camera:
+  File "/usr/lib/python2.7/dist-packages/picamera/camera.py", line 419, in __init__
+    self.STEREO_MODES[stereo_mode], stereo_decimate)
+  File "/usr/lib/python2.7/dist-packages/picamera/camera.py", line 457, in _init_camera
+    "Camera is not enabled. Try running 'sudo raspi-config' "
+picamera.exc.PiCameraError: Camera is not enabled. Try running 'sudo raspi-config' and ensure that the camera has been enabled.

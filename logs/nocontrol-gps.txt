@@ -1,0 +1,2 @@
+Connected to GPS daemon
+No Fix

@@ -5,12 +5,20 @@ import json
 import requests
 import subprocess
 import RPi.GPIO as GPIO
+import shutil
 
 import os
 import datetime
 
+shutil.copy('/home/pi/scripts/logs/nocontrol-gps.txt', '/home/pi/scripts/logs/last-nocontrol-gps.log')
+shutil.copy('/home/pi/scripts/logs/nocontrol-gps-err.txt', '/home/pi/scripts/logs/last-nocontrol-gps-err.log')
 
-time.sleep(10)
+
+import sys
+sys.stdout = open('/home/pi/scripts/logs/nocontrol-gps.txt','w', 0)
+sys.stderr = open('/home/pi/scripts/logs/nocontrol-gps-err.txt','w', 0)
+
+time.sleep(4)
 
 ledGPS = 19
 ledWIFI = 26
@@ -19,7 +27,7 @@ GPIO.setwarnings(False)
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(ledGPS, GPIO.OUT)
-GPIO.output(ledGPS, True)
+#GPIO.output(ledGPS, True)
 
 GPIO.setup(ledWIFI, GPIO.OUT)
 GPIO.output(ledWIFI, True)
@@ -37,7 +45,6 @@ if datetime.date.today().year < 1980:
 
 
 
-#auth = 'ngo93Jqq7LtDgWMkEXztCwmC4sechnwXiu'
 auth = 'jQ5a6odf3qJfhjyZG8M73C3A8JQyHk6w7R' 
 
 
@@ -47,9 +54,11 @@ while not connected:
 		session.stream(gps.WATCH_ENABLE)
 		connected = True
 	except Exception, e:
-		print("Could not connected to the GPS module")
+		print("Could not connected to the GPS module:", e)
 		subprocess.call(["/bin/gpsd", "/dev/ttyAMA0"])
 		time.sleep(2)
+
+print("Connected to GPS daemon")
 
 PushRate = 30
 PushCount = 0
@@ -65,43 +74,37 @@ def getFix():
 
 def sendGPS():
 #last lat position in the last-gps.json file
-	configlat = open('/home/pi/scripts/var/last-gps.json', 'r')
-	configlatJson = json.load(configlat)
-	lat = configlatJson['lat']
-	configlat.close()
+	configFile = open('/home/pi/scripts/var/last-gps.json', 'r')
+	configInfo = json.load(configFile)
+
+	lat = configInfo['lat']
+	lng = configInfo['lon']
+
+	configFile.close()
 	print("lat:", lat)
-#last lon position in the last-gps.json file
-	configlng = open('/home/pi/scripts/var/last-gps.json', 'r')
-	configlngJson = json.load(configlng)
-	lng = configlngJson['lon']
-	configlng.close()
 	print("lng:", lng)
+
 	headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
 	
 	r = requests.post('http://lia-wearable-nocontrol.meteor.com/addDatum', data=json.dumps({'auth': auth, 'lat':lat, 'lng':lng, 'display':1, 'extra':{'type':0}}), headers=headers) 
 	if (r.status_code == 200):
+		print("Gps Sent Data")
 		GPIO.output(ledGPS, True)
 		time.sleep(2)
 		GPIO.output(ledGPS, False)
-	#time.sleep(60)
 
 while True:
 	try:
-		print("try")
 		report = session.next()
-		print("next:", report)
 		if report['class'] == 'SKY':
-			print("class")
 			fix = getFix()
-			print("bla:", fix)
 		if not fix:
 			if PushCount < PushRate:
 				PushCount = PushRate
-				print("fix:", fix)
+				print("No Fix")
 		else:
-			print("entrou else")
+			print("Fix")
 			if report['class'] == 'TPV':
-				print("TPV")
 				if 'time' in report:
 					if (GetGPSSystemDate):
 						GetGPSSystemDate = False
@@ -116,8 +119,12 @@ while True:
 						PushCount = 0
 						sendGPS()
 				PushCount += 1
-		
+	
+	except KeyError:
+		print("KeyError")
+		pass	
 	except StopIteration:
+		print("Reached StopIteration")
 		session = gps.gps()
 		session.stream(gps.WATCH_ENABLE)
 		continue
